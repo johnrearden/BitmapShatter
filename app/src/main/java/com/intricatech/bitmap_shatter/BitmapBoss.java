@@ -100,23 +100,36 @@ public class BitmapBoss implements SurfaceInfoObserver{
         // Draw shards.
         for (BitmapShard shard : shardList) {
             camera.save();
+
             camera.rotate(shard.getxRotation(), shard.getyRotation(), shard.getzRotation());
             camera.translate(
                     -shard.getxSize() / 2,
                     +shard.getySize() / 2,
                     0.0f);
+            matrix = new Matrix();
             camera.getMatrix(matrix);
             matrix.postTranslate(canvasWidth / 2 + shard.getxPos(), 0);
             matrix.postTranslate(0, canvasHeight / 2 + shard.getyPos());
-            canvas.drawBitmap(shard.getBitmap(), matrix, filterPaint);
+            canvas.drawBitmap(shard.getBitmap(), matrix, null);
             camera.restore();
-            matrix.reset();
+            matrix = null;
         }
         // Update shards.
         if (!drawOnly) {
             for (BitmapShard shard: shardList) {
                 shard.update(surfaceInfo);
             }
+        }
+    }
+
+    public void simpleDraw(Canvas canvas) {
+        for (BitmapShard shard : shardList) {
+            canvas.drawBitmap(
+                    shard.getBitmap(),
+                    100 + shard.getxPos(),
+                    100 + shard.getyPos(),
+                    null
+            );
         }
     }
 

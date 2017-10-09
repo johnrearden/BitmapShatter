@@ -109,6 +109,10 @@ public class GameSurfaceView extends SurfaceView
             } else {
                 bitmapBoss.updateAndDraw(canvas, false);
             }
+/*
+            bitmapBoss.simpleDraw(canvas);
+*/
+
 
             holder.unlockCanvasAndPost(canvas);
             triggerDraw = false;
