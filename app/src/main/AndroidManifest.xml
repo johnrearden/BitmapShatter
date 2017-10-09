@@ -1,0 +1,32 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+
+    package="com.intricatech.bitmap_shatter">
+
+    <application
+        android:allowBackup="true"
+        android:icon="@drawable/launcher_icon"
+        android:label="BitmapShatter"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:largeHeap="true"
+        android:allowClearUserData="true"
+        android:hardwareAccelerated="false"
+        android:theme="@style/BitmapShatterTheme"
+        >
+        <!--Random Comment changed once and twice-->
+        <activity android:name="com.intricatech.bitmap_shatter.GameActivity"
+            android:configChanges="orientation|keyboardHidden"
+            android:label="Bitmap Shatter"
+            android:screenOrientation="landscape"
+            >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+        </activity>
+
+    </application>
+
+</manifest>
