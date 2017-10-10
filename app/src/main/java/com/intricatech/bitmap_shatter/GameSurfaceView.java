@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Choreographer;
@@ -36,12 +37,12 @@ public class GameSurfaceView extends SurfaceView
 
     private SurfaceInfo surfaceInfo;
     private BitmapBoss bitmapBoss;
+    private Paint linePaint;
 
     private Thread drawThread;
     private boolean continueRendering;
     private long lastFrameStartTime;
     private boolean proceed;
-    private boolean firstDraw;
 
     private boolean drawableObjectsReady;
     private boolean triggerDraw;
@@ -69,7 +70,10 @@ public class GameSurfaceView extends SurfaceView
         choreographer = Choreographer.getInstance();
         physics = new Physics(this, touchDirector);
         bitmapBoss = new BitmapBoss(context, this);
-
+        linePaint = new Paint();
+        linePaint.setColor(Color.WHITE);
+        linePaint.setStyle(Paint.Style.STROKE);
+        linePaint.setStrokeWidth(5.0f);
         continueRendering = false;
         triggerDraw = false;
 
@@ -102,6 +106,20 @@ public class GameSurfaceView extends SurfaceView
             // Main drawing routine starts here.
             Canvas canvas = holder.lockCanvas();
             canvas.drawColor(Color.BLACK);
+            canvas.drawLine(
+                    canvas.getWidth() / 2,
+                    0,
+                    canvas.getWidth() / 2,
+                    canvas.getHeight(),
+                    linePaint
+            );
+            canvas.drawLine(
+                    0,
+                    canvas.getHeight() / 2,
+                    canvas.getWidth(),
+                    canvas.getHeight() / 2,
+                    linePaint
+            );
 
             physics.drawObjects(canvas);
             if (!proceed) {

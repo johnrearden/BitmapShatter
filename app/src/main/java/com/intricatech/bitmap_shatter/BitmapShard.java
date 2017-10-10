@@ -13,8 +13,11 @@ public class BitmapShard {
 
     private final String TAG;
 
+    BitmapShard[] children;
+
     private Bitmap bitmap;
     private float xSize, ySize;
+    private int memoryOverhead;
 
     private int recursiveDepth;
     private float xPos, yPos, zPos;
@@ -23,6 +26,8 @@ public class BitmapShard {
     private float xAngVel, yAngVel, zAngVel;
 
     private boolean isOnScreen;
+    private boolean isParent;
+    private boolean canShatter;
 
     private Random random;
 
@@ -34,7 +39,10 @@ public class BitmapShard {
             float yPos,
             float xVel,
             float yVel) {
+
         TAG = getClass().getSimpleName();
+
+        children = new BitmapShard[2];
         random = new Random();
         this.bitmap = bmap;
         this.recursiveDepth = recursiveDepth;
@@ -46,6 +54,8 @@ public class BitmapShard {
         zPos = 1.0f;
         zVel = 0.0f;
         isOnScreen = true;
+        isParent = false;
+        canShatter = false;
 
         xRotation = 0;
         yRotation = 0;
@@ -53,6 +63,7 @@ public class BitmapShard {
 
         xSize = bitmap.getWidth();
         ySize = bitmap.getHeight();
+        memoryOverhead = (int) (xSize * ySize * 4);
 
         // Set random angular velocities.
         xAngVel = ApplicationConstants.MIN_X_ANGULAR_VELOCITY
@@ -72,6 +83,14 @@ public class BitmapShard {
         }
 
         Log.d(TAG, "xPos == " + this.xPos);
+
+        if (recursiveDepth < ApplicationConstants.MIN_RECURSIVE_DEPTH) {
+            canShatter = true;
+        } else if (recursiveDepth == ApplicationConstants.MAX_RECURSIVE_DEPTH) {
+            canShatter = false;
+        } else {
+            canShatter = Math.random() < 0.5f ? true : false;
+        }
     }
 
     public void update(SurfaceInfo surfaceInfo) {
@@ -148,5 +167,21 @@ public class BitmapShard {
 
     public float getzVel() {
         return zVel;
+    }
+
+    public boolean isParent() {
+        return isParent;
+    }
+
+    public void setParent(boolean parent) {
+        isParent = parent;
+    }
+
+    public boolean canShatter() {
+        return canShatter;
+    }
+
+    public void setCanShatter(boolean canShatter) {
+        this.canShatter = canShatter;
     }
 }

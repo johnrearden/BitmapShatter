@@ -15,7 +15,6 @@ import android.graphics.PorterDuffXfermode;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -27,7 +26,7 @@ public class BitmapBoss implements SurfaceInfoObserver{
     private final String TAG;
     private static final int NUMBER_OF_COORDINATES = 10;
     private static final float VARIATION_RATIO = 0.15f;
-    private static final float INITIAL_VELOCITY = 10.0f;
+    private static final float INITIAL_VELOCITY = 5.0f;
 
     private SurfaceInfo surfaceInfo;
 
@@ -38,6 +37,7 @@ public class BitmapBoss implements SurfaceInfoObserver{
     private Camera camera;
     private Matrix matrix;
     private List<BitmapShard> shardList;
+    private List<BitmapShard> tempList;
 
 
     public BitmapBoss(Context context, SurfaceInfoDirector surfaceInfoDirector) {
@@ -45,7 +45,8 @@ public class BitmapBoss implements SurfaceInfoObserver{
         TAG = getClass().getSimpleName();
 
         surfaceInfoDirector.register(this);
-        shardList = Collections.synchronizedList(new ArrayList<BitmapShard>());
+        shardList = new ArrayList<>();
+        tempList = new ArrayList<>();
 
         shatterPaint = new Paint();
         shatterPaint.setStrokeWidth(5);
@@ -76,20 +77,17 @@ public class BitmapBoss implements SurfaceInfoObserver{
                 0,
                 0
         );
-        shardList.add(originalShard);
-        shardList.addAll(Arrays.asList(splitBitmapShardVertically(originalShard)));
-        shardList.remove(originalShard);
-
-        BitmapShard shard1 = shardList.get(0);
-        BitmapShard shard2 = shardList.get(1);
-        shardList.addAll(Arrays.asList(splitBitmapShardHorizontally(shard1)));
-        shardList.remove(shard1);
-        shardList.addAll(Arrays.asList(splitBitmapShardHorizontally(shard2)));
-        shardList.remove(shard2);
+        tempList.add(originalShard);
+        shatterBitmapShard(originalShard);
+        for (BitmapShard bs : tempList) {
+           if (!bs.isParent()) {
+               shardList.add(bs);
+           }
+        }
 
         matrix = new Matrix();
         camera = new Camera();
-        camera.setLocation(0, 0, -32);
+        //camera.setLocation(0, 0, -32);
     }
 
     public void updateAndDraw(Canvas canvas, boolean drawOnly) {
@@ -108,8 +106,10 @@ public class BitmapBoss implements SurfaceInfoObserver{
                     0.0f);
             matrix = new Matrix();
             camera.getMatrix(matrix);
-            matrix.postTranslate(canvasWidth / 2 + shard.getxPos(), 0);
-            matrix.postTranslate(0, canvasHeight / 2 + shard.getyPos());
+            matrix.postTranslate(
+                    canvasWidth / 2 - sourceWidth / 2 + shard.getxSize() / 2 + shard.getxPos(), 0);
+            matrix.postTranslate(
+                    0, canvasHeight / 2 - sourceHeight / 2 + shard.getySize() / 2 + shard.getyPos());
             canvas.drawBitmap(shard.getBitmap(), matrix, null);
             camera.restore();
             matrix = null;
@@ -130,6 +130,24 @@ public class BitmapBoss implements SurfaceInfoObserver{
                     100 + shard.getyPos(),
                     null
             );
+        }
+    }
+
+    private void shatterBitmapShard(BitmapShard source) {
+        if (source.canShatter()) {
+            if (source.getxSize() > source.getySize()) {
+                source.children = splitBitmapShardVertically(source);
+            } else {
+                source.children = splitBitmapShardHorizontally(source);
+            }
+        }
+        tempList.addAll(Arrays.asList(source.children));
+        source.setParent(true);
+        if (source.children[0].canShatter()) {
+            shatterBitmapShard(source.children[0] );
+        }
+        if (source.children[1].canShatter()) {
+            shatterBitmapShard(source.children[1]);
         }
     }
 
