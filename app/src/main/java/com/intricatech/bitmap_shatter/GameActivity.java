@@ -20,6 +20,7 @@ public class GameActivity extends FragmentActivity
     private String TAG;
     private GameSurfaceView gameSurfaceView;
     private ArrayList<TouchObserver> touchObservers;
+    private Configuration configuration;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -32,7 +33,8 @@ public class GameActivity extends FragmentActivity
         Log.d(TAG, "onCreate() invoked");
         gameSurfaceView = findViewById(R.id.game_surfaceview);
         gameSurfaceView.setOnTouchListener(this);
-        gameSurfaceView.initialize(this, this);
+        configuration = Configuration.getInstance();
+        gameSurfaceView.initialize(this, this, configuration);
     }
 
     @Override

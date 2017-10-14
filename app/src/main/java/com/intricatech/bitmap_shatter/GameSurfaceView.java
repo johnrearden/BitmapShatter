@@ -26,7 +26,7 @@ public class GameSurfaceView extends SurfaceView
                    TouchObserver{
 
     private String TAG;
-    private static final boolean DEBUG = false;
+    private static final boolean DEBUG = true;
 
     private ArrayList<SurfaceInfoObserver> observers;
 
@@ -37,7 +37,7 @@ public class GameSurfaceView extends SurfaceView
 
     private SurfaceInfo surfaceInfo;
     private BitmapBoss bitmapBoss;
-    private Paint linePaint;
+    private Paint linePaint, textPaint;
 
     private Thread drawThread;
     private boolean continueRendering;
@@ -59,7 +59,7 @@ public class GameSurfaceView extends SurfaceView
         super(context, attrs, defStyleAttr);
     }
 
-    public void initialize(Context context, TouchDirector touchDirector) {
+    public void initialize(Context context, TouchDirector touchDirector, Configuration configuration) {
         TAG = getClass().getSimpleName();
         touchDirector.register(this);
 
@@ -69,11 +69,15 @@ public class GameSurfaceView extends SurfaceView
         holder.addCallback(this);
         choreographer = Choreographer.getInstance();
         physics = new Physics(this, touchDirector);
-        bitmapBoss = new BitmapBoss(context, this);
+        bitmapBoss = new BitmapBoss(context, this, touchDirector, configuration);
+
         linePaint = new Paint();
         linePaint.setColor(Color.WHITE);
         linePaint.setStyle(Paint.Style.STROKE);
         linePaint.setStrokeWidth(5.0f);
+        textPaint = new Paint();
+        textPaint.setColor(Color.GREEN);
+        textPaint.setTextSize(70);
         continueRendering = false;
         triggerDraw = false;
 
@@ -106,31 +110,29 @@ public class GameSurfaceView extends SurfaceView
             // Main drawing routine starts here.
             Canvas canvas = holder.lockCanvas();
             canvas.drawColor(Color.BLACK);
-            canvas.drawLine(
-                    canvas.getWidth() / 2,
-                    0,
-                    canvas.getWidth() / 2,
-                    canvas.getHeight(),
-                    linePaint
-            );
-            canvas.drawLine(
-                    0,
-                    canvas.getHeight() / 2,
-                    canvas.getWidth(),
-                    canvas.getHeight() / 2,
-                    linePaint
-            );
+            if (DEBUG) {
+                canvas.drawLine(
+                        canvas.getWidth() / 2,
+                        0,
+                        canvas.getWidth() / 2,
+                        canvas.getHeight(),
+                        linePaint
+                );
+                canvas.drawLine(
+                        0,
+                        canvas.getHeight() / 2,
+                        canvas.getWidth(),
+                        canvas.getHeight() / 2,
+                        linePaint
+                );
+                canvas.drawText(
+                        "frameNumber == " + bitmapBoss.getFrameNumber(),
+                        50, 50, textPaint
+                );
+            }
 
             physics.drawObjects(canvas);
-            if (!proceed) {
-                bitmapBoss.updateAndDraw(canvas, true);
-            } else {
-                bitmapBoss.updateAndDraw(canvas, false);
-            }
-/*
-            bitmapBoss.simpleDraw(canvas);
-*/
-
+            bitmapBoss.update(canvas);
 
             holder.unlockCanvasAndPost(canvas);
             triggerDraw = false;

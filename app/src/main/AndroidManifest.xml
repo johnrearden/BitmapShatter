@@ -8,9 +8,7 @@
         android:label="BitmapShatter"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:largeHeap="true"
         android:allowClearUserData="true"
-        android:hardwareAccelerated="false"
         android:theme="@style/BitmapShatterTheme"
         >
         <!--Random Comment changed once and twice-->
