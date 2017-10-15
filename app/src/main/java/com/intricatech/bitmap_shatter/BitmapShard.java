@@ -1,6 +1,8 @@
 package com.intricatech.bitmap_shatter;
 
 import android.graphics.Bitmap;
+import android.graphics.Camera;
+import android.graphics.Matrix;
 import android.graphics.PointF;
 import android.support.annotation.NonNull;
 
@@ -28,6 +30,7 @@ public class BitmapShard implements Comparable<BitmapShard> {
     private Configuration configuration;
 
     private Bitmap bitmap;
+    private Bitmap source;
     private float xSize, ySize;
     private PointF centerRelativeToSourceCenter;
     private float distToSourceCenterRatio;
@@ -49,17 +52,18 @@ public class BitmapShard implements Comparable<BitmapShard> {
     private boolean canShatter;
 
     private Random random;
+    private Matrix matrix;
 
     // Constructor.
     public BitmapShard(
             Configuration configuration,
             VelocityControlType velocityControlType,
             Bitmap bmap,
+            Bitmap source,
             PointF centerRelativeToSourceCenter,
             PointF position,
             float maxDistToSource,
-            int recursiveDepth
-            ) {
+            int recursiveDepth) {
 
         TAG = getClass().getSimpleName();
 
@@ -71,6 +75,7 @@ public class BitmapShard implements Comparable<BitmapShard> {
         this.recursiveDepth = recursiveDepth;
         this.velocityControlType = velocityControlType;
         this.centerRelativeToSourceCenter = centerRelativeToSourceCenter;
+        this.source = source;
         float distToSourceCenter = (float) Math.sqrt(
                 centerRelativeToSourceCenter.x * centerRelativeToSourceCenter.x)
                 + (centerRelativeToSourceCenter.y * centerRelativeToSourceCenter.y);
@@ -133,83 +138,15 @@ public class BitmapShard implements Comparable<BitmapShard> {
 
         // Save the initial state.
         saveState(0);
-    }
 
-    public BitmapShard(
-            Configuration configuration,
-            VelocityControlType velocityControlType,
-            Bitmap bmap,
-            PointF centerRelativeToSourceCenter,
-            float maxDistToCenterSq,
-            int recursiveDepth,
-            float xPos,
-            float yPos,
-            int numberOfFramesDecelerating) {
-
-        TAG = getClass().getSimpleName();
-
-        this.configuration = configuration;
-        children = new BitmapShard[2];
-        recordedStates = new ArrayList<>();
-        random = new Random();
-        this.bitmap = bmap;
-        this.recursiveDepth = recursiveDepth;
-        this.xPos = xPos;
-        this.yPos = yPos;
-        this.centerRelativeToSourceCenter = centerRelativeToSourceCenter;
-        float distToCenter = (centerRelativeToSourceCenter.x * centerRelativeToSourceCenter.x)
-                + (centerRelativeToSourceCenter.y * centerRelativeToSourceCenter.y);
-        velocityRatio = ((float) (Math.pow(distToCenter, 0.5f) / Math.pow(maxDistToCenterSq, 0.5f)));
-        xVel = configuration.getInitialVelocity() * velocityRatio * Math.signum(centerRelativeToSourceCenter.x);
-        yVel = configuration.getInitialVelocity() * velocityRatio * Math.signum(centerRelativeToSourceCenter.y);
-
-        destinationPoint = new PointF();
-        destinationPoint.x = centerRelativeToSourceCenter.x * configuration.getExpansionRatio();
-        destinationPoint.y = centerRelativeToSourceCenter.y * configuration.getExpansionRatio();
-
-
-        zPos = 1.0f;
-        zVel = 0.0f;
-        isOnScreen = true;
-        isParent = false;
-        canShatter = false;
-
-        xRotation = 0;
-        yRotation = 0;
-        zRotation = 0;
-
-        xSize = bitmap.getWidth();
-        ySize = bitmap.getHeight();
-        memoryOverhead = (int) (xSize * ySize * 4);
-
-
-
-
-        // Prepare the decelerations now, rather than calculating on the fly later.
-        xVelDec = -xVel / numberOfFramesDecelerating;
-        yVelDec = -yVel / numberOfFramesDecelerating;
-        zVelDec = -zVel / numberOfFramesDecelerating;
-        xRotationDec = -xRotation / numberOfFramesDecelerating;
-        yRotationDec = -yRotation / numberOfFramesDecelerating;
-        zRotationDec = -zRotation / numberOfFramesDecelerating;
-
-        // Check if this shard should itself be allowed to shatter. If the recursive depth
-        // is between the MIN and MAX, then allow a 50% chance that it will shatter.
-        if (recursiveDepth < configuration.getMinRecursiveDepth()) {
-            canShatter = true;
-        } else if (recursiveDepth == configuration.getMaxRecursiveDepth()) {
-            canShatter = false;
-        } else {
-            canShatter = Math.random() < 0.5f ? true : false;
-        }
-
-        // Save the initial state.
-        saveState(0);
+        // Create the matrix.
+        matrix = new Matrix();
     }
 
     public void update(
             SurfaceInfo surfaceInfo,
             int frameNumber,
+            Camera camera,
             boolean shouldDecelerate) {
 
         switch(velocityControlType) {
@@ -260,6 +197,29 @@ public class BitmapShard implements Comparable<BitmapShard> {
         } else {
             isOnScreen = true;
         }
+
+        camera.save();
+
+        camera.rotate(xAngVel, yAngVel, zAngVel);
+        camera.translate(
+                -xSize / 2,
+                +ySize / 2,
+                0.0f);
+        matrix = new Matrix();
+        camera.getMatrix(matrix);
+        matrix.postScale(zPos, zPos);
+        matrix.postTranslate(
+                surfaceInfo.screenWidth / 2 - source.getWidth() / 2
+                        + (xSize / 2) + xPos
+                            /*- ((shard.getzPos() - 1.0f) * shard.getxSize())*/,
+                0);
+        matrix.postTranslate(
+                0,
+                surfaceInfo.screenHeight / 2 - source.getHeight() / 2
+                        + (ySize / 2) + yPos
+                            /*- ((shard.getzPos() - 1.0f) * shard.getySize())*/);
+
+        camera.restore();
     }
 
 
@@ -399,5 +359,9 @@ public class BitmapShard implements Comparable<BitmapShard> {
 
     public PointF getCenterRelativeToSourceCenter() {
         return centerRelativeToSourceCenter;
+    }
+
+    public Matrix getMatrix() {
+        return matrix;
     }
 }

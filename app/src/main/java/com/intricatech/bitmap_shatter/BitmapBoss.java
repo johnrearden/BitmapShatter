@@ -96,6 +96,7 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
                 configuration,
                 BitmapShard.VelocityControlType.SINUSOIDAL,
                 alphaBitmap,
+                sourceBitmap,
                 new PointF(0, 0),
                 new PointF(0, 0),
                 maxDistToCenter,
@@ -110,14 +111,13 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
            }
         }
 
-        matrix = new Matrix();
         camera = new Camera();
         camera.setLocation(0, 0, -32);
     }
 
-    public void update(Canvas canvas) {
+    public void update() {
 
-        drawShards(canvas);
+        //drawShards(canvas);
         //simpleDraw(canvas);
 
         switch (playType) {
@@ -134,6 +134,7 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
                         shard.update(
                                 surfaceInfo,
                                 frameNumber,
+                                camera,
                                 shouldDecelerate);
                     }
                     Collections.sort(shardList);
@@ -308,6 +309,7 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
                 configuration,
                 BitmapShard.VelocityControlType.SINUSOIDAL,
                 bitmap1,
+                sourceBitmap,
                 center1,
                 new PointF(sourceShard.getxPos(), sourceShard.getyPos()),
                 maxDistToCenter,
@@ -317,6 +319,7 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
                 configuration,
                 BitmapShard.VelocityControlType.SINUSOIDAL,
                 bitmap2,
+                sourceBitmap,
                 center2,
                 new PointF(sourceShard.getxPos() + minCutoff, sourceShard.getyPos()),
                 maxDistToCenter,
@@ -407,6 +410,7 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
                 configuration,
                 BitmapShard.VelocityControlType.SINUSOIDAL,
                 bitmap1,
+                sourceBitmap,
                 center1,
                 new PointF(sourceShard.getxPos(), sourceShard.getyPos()),
                 maxDistToCenter,
@@ -416,6 +420,7 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
                 configuration,
                 BitmapShard.VelocityControlType.SINUSOIDAL,
                 bitmap2,
+                sourceBitmap,
                 center2,
                 new PointF(sourceShard.getxPos(), sourceShard.getyPos() + minCutoff),
                 maxDistToCenter,
@@ -459,5 +464,13 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
 
     public int getFrameNumber() {
         return frameNumber;
+    }
+
+    public int getSizeOfShardList() {
+        return shardList.size();
+    }
+
+    public List<BitmapShard> getShardList() {
+        return shardList;
     }
 }

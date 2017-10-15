@@ -2,9 +2,12 @@ package com.intricatech.bitmap_shatter;
 
 import android.content.Context;
 import android.content.res.Resources;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.support.annotation.NonNull;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Choreographer;
@@ -13,6 +16,7 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Created by Bolgbolg on 26/09/2017.
@@ -26,7 +30,7 @@ public class GameSurfaceView extends SurfaceView
                    TouchObserver{
 
     private String TAG;
-    private static final boolean DEBUG = true;
+    private static final boolean DEBUG = false;
 
     private ArrayList<SurfaceInfoObserver> observers;
 
@@ -46,6 +50,8 @@ public class GameSurfaceView extends SurfaceView
 
     private boolean drawableObjectsReady;
     private boolean triggerDraw;
+
+    private ArrayList<ShardDrawingPacket> packetList;
 
     public GameSurfaceView(Context context) {
         super(context);
@@ -68,8 +74,12 @@ public class GameSurfaceView extends SurfaceView
         holder = getHolder();
         holder.addCallback(this);
         choreographer = Choreographer.getInstance();
-        physics = new Physics(this, touchDirector);
+        physics = new Physics(context, this, touchDirector, configuration);
         bitmapBoss = new BitmapBoss(context, this, touchDirector, configuration);
+        packetList = new ArrayList<>();
+        for (int i = 0; i < physics.getBitmapBoss().getSizeOfShardList(); i++) {
+            packetList.add(new ShardDrawingPacket());
+        }
 
         linePaint = new Paint();
         linePaint.setColor(Color.WHITE);
@@ -86,28 +96,47 @@ public class GameSurfaceView extends SurfaceView
 
     @Override
     public void run() {
+        // Outer while loop - continueRendering set by Activity.onResume() and Activity.onPause().
+        outerloop:
         while (continueRendering) {
+
+            // If the surface isn't available yet, skip the frame.
             if (!holder.getSurface().isValid()) {
+                if (DEBUG) {
+                    Log.d(TAG, "waiting for valid surface .... ");
+                }
                 continue;
             }
+
+            // Wait for the Choreographer to initiate the frame via callback to doFrame().
             while (!triggerDraw) {
+                if (DEBUG) {
+                    Log.d(TAG, "waiting for triggerDraw == true");
+                }
                 try {
                     Thread.sleep(0, 1000);
                 } catch (InterruptedException ie) {
                     ie.printStackTrace();
                 }
+                if (!continueRendering) {
+                    break outerloop;
+                }
             }
 
-            // Physics update starts here.
-            physics.updateObjects();
-            float time = 0;
-            if (DEBUG) {
-                time = (float) (System.nanoTime() - lastFrameStartTime) / 1000000;
-                Log.d(TAG, "Time for frame physics == " + String.format("%.2f,", time));
+            // Skip the frame if the physics thread has not completed the previous update.
+            if (!physics.isUpdateComplete()) {
+                if (DEBUG) {
+                    Log.d(TAG, "physics.isUpdateComplete() returns false....");
+                }
+                continue;
             }
 
+            // Grab the drawing data from bitmapBoss.shardList.
+            grabDrawingPackets(physics.getBitmapBoss().getShardList());
+            physics.setDrawDataGrabComplete(true);
 
-            // Main drawing routine starts here.
+
+            // MAIN DRAWING ROUTINE STARTS HERE.
             Canvas canvas = holder.lockCanvas();
             canvas.drawColor(Color.BLACK);
             if (DEBUG) {
@@ -131,14 +160,18 @@ public class GameSurfaceView extends SurfaceView
                 );
             }
 
-            physics.drawObjects(canvas);
-            bitmapBoss.update(canvas);
+            /*physics.drawObjects(canvas);
+            bitmapBoss.update(canvas);*/
+
+            for (ShardDrawingPacket packet : packetList) {
+                packet.drawPacket(canvas);
+            }
 
             holder.unlockCanvasAndPost(canvas);
             triggerDraw = false;
 
             if (DEBUG) {
-                time = (float) (System.nanoTime() - lastFrameStartTime) / 1000000;
+                float time = (float) (System.nanoTime() - lastFrameStartTime) / 1000000;
                 Log.d(TAG, "Time for drawing == " + String.format("%.2f,", time));
             }
         }
@@ -160,6 +193,18 @@ public class GameSurfaceView extends SurfaceView
 
             break;
         }
+
+        while (true) {
+            try {
+                physics.setContinueRunning(false);
+                if (physics.getPhysicsThread() != null) {
+                    physics.getPhysicsThread().join();
+                }
+            } catch (InterruptedException ie) {
+                    ie.printStackTrace();
+                }
+            break;
+        }
     }
 
     public void onResume() {
@@ -178,9 +223,13 @@ public class GameSurfaceView extends SurfaceView
         surfaceInfo = new SurfaceInfo(width, height);
         publishSurfaceInfo();
 
+        physics.setContinueRunning(true);
+        physics.startThread();
+
         drawThread = new Thread(this);
         continueRendering = true;
         drawThread.start();
+
     }
 
     @Override
@@ -193,6 +242,24 @@ public class GameSurfaceView extends SurfaceView
         lastFrameStartTime = l;
         choreographer.postFrameCallback(this);
         triggerDraw = true;
+        physics.doFrame(l);
+
+        /**
+         * doFrame must grab the matrices, bitmaps and zPositions of the shards and then
+         * the drawThread simply calls canvas.drawBitmap(bitmap, matrix, null).
+         * GameSurfaceView should keep an ArrayList to mirror that in BitmapBoss. The bitmaps
+         * can be final and held by BitmapBoss and accessed concurrently by both Threads as they
+         * do not need to be written to after creation in BitmapBosses constructor. The matrices
+         * and the z-positions must be copied though, as PhysicsThread will be writing the new frame
+         * info to the objects while the drawThread needs to access the previous ones. Use a
+         * ShardDrawingData object to encapsulate the matrix and zPosition copies, along with a reference
+         * to the (immutable?) shard.bitmap.
+         *
+         * Both Threads should poll a flag flipped by doFrame() each time the Choreographer fires,
+         * and return gracefully from their iterations through the shardLists if they run out of time,
+         * to enable each frame to at least start on schedule, even if it doesnt complete. This can be
+         * implemented after the basic concurrency mechanics are put in place.
+         */
     }
 
     @Override
@@ -217,6 +284,45 @@ public class GameSurfaceView extends SurfaceView
         switch (me.getActionMasked()) {
             case MotionEvent.ACTION_DOWN : {
                 proceed = true;
+            }
+        }
+    }
+
+    private void grabDrawingPackets(List<BitmapShard> shardList) {
+        for (int i = 0; i < shardList.size(); i++)  {
+            packetList.get(i).copyShardData(shardList.get(i));
+        }
+    }
+
+    private class ShardDrawingPacket implements Comparable<ShardDrawingPacket>{
+        Bitmap bitmap;
+        Matrix matrix;
+        float zPos;
+
+        ShardDrawingPacket() {
+            bitmap = null;
+            matrix = new Matrix();
+            zPos = 1.0f;
+        }
+
+        void copyShardData(BitmapShard shard) {
+            zPos = shard.getzPos();
+            matrix.set(shard.getMatrix());
+            bitmap = shard.getBitmap();
+        }
+
+        void drawPacket(Canvas canvas) {
+            canvas.drawBitmap(bitmap, matrix, null);
+        }
+
+        @Override
+        public int compareTo(@NonNull ShardDrawingPacket packet) {
+            if (packet.zPos > zPos) {
+                return -1;
+            } else if (packet.zPos < zPos) {
+                return 1;
+            } else {
+                return 0;
             }
         }
     }
