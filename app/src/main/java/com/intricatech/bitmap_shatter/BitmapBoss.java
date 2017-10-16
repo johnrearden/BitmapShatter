@@ -17,7 +17,6 @@ import android.view.MotionEvent;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 import static com.intricatech.bitmap_shatter.BitmapBoss.PlayType.PAUSED_AT_OUTER;
@@ -47,6 +46,7 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
     private int frameNumber;
     private int pauseCountdown;
     float maxDistToCenter;
+    private boolean firstFrameMatrixCalculated;
 
     enum PlayType {
         BEFORE_START, STOPPED_AND_RECORDED, PLAYING_AND_RECORDING, REVERSING, PLAYING, PAUSED_AT_OUTER
@@ -67,7 +67,7 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
         this.configuration = configuration;
         shardList = new ArrayList<>();
         tempList = new ArrayList<>();
-        frameNumber = 1;
+        frameNumber = 0;
         playType = PlayType.BEFORE_START;
 
         shatterPaint = new Paint();
@@ -113,16 +113,20 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
 
         camera = new Camera();
         camera.setLocation(0, 0, -32);
+        firstFrameMatrixCalculated = false;
     }
 
     public void update() {
 
-        //drawShards(canvas);
-        //simpleDraw(canvas);
-
         switch (playType) {
 
             case BEFORE_START:
+                if (!firstFrameMatrixCalculated) {
+                    for (BitmapShard shard : shardList) {
+                        shard.saveInitialState(surfaceInfo, camera);
+                    }
+                    firstFrameMatrixCalculated = true;
+                }
                 break;
             case STOPPED_AND_RECORDED:
                 break;
@@ -137,7 +141,6 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
                                 camera,
                                 shouldDecelerate);
                     }
-                    Collections.sort(shardList);
                     frameNumber++;
                 } else {
                     playType = PAUSED_AT_OUTER;
@@ -150,7 +153,7 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
                 if (frameNumber > 0) {
                     frameNumber--;
                     for (BitmapShard shard : shardList) {
-                        shard.runExistingFramesBackwards(surfaceInfo, frameNumber);
+                        shard.runExistingFramesBackwards(surfaceInfo, camera, frameNumber);
                     }
 
                 } else {
@@ -160,7 +163,7 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
             case PLAYING:
                 if (frameNumber < configuration.getFrameLimitBeforeReversing()) {
                     for (BitmapShard shard : shardList) {
-                        shard.runExistingFramesForwards(surfaceInfo, frameNumber);
+                        shard.runExistingFramesForwards(surfaceInfo, camera, frameNumber);
                     }
                     frameNumber++;
                 } else {
@@ -177,41 +180,6 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
         }
     }
 
-    private void drawShards(Canvas canvas) {
-
-        float canvasWidth = canvas.getWidth();
-        float canvasHeight = canvas.getHeight();
-
-
-        // Draw shards.
-        for (BitmapShard shard : shardList) {
-            camera.save();
-
-            //camera.rotate(shard.getxRotation(), shard.getyRotation(), shard.getzRotation());
-            camera.translate(
-                    -shard.getxSize() / 2,
-                    +shard.getySize() / 2,
-                    0.0f);
-            matrix = new Matrix();
-            camera.getMatrix(matrix);
-            matrix.postScale(shard.getzPos(), shard.getzPos());
-            matrix.postTranslate(
-                    canvasWidth / 2 - sourceWidth / 2
-                            + (shard.getxSize() / 2) + shard.getxPos()
-                            /*- ((shard.getzPos() - 1.0f) * shard.getxSize())*/,
-                    0);
-            matrix.postTranslate(
-                    0,
-                    canvasHeight / 2 - sourceHeight / 2
-                            + (shard.getySize() / 2) + shard.getyPos()
-                            /*- ((shard.getzPos() - 1.0f) * shard.getySize())*/);
-
-            canvas.drawBitmap(shard.getBitmap(), matrix, null);
-            camera.restore();
-            matrix = null;
-        }
-    }
-
     private void shatterBitmapShard(BitmapShard source) {
         if (source.canShatter()) {
             if (source.getxSize() > source.getySize()) {
@@ -219,16 +187,15 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
             } else {
                 source.children = splitBitmapShardHorizontally(source);
             }
+            tempList.addAll(Arrays.asList(source.children));
+            source.setParent(true);
+            if (source.children[0].canShatter()) {
+                shatterBitmapShard(source.children[0] );
+            }
+            if (source.children[1].canShatter()) {
+                shatterBitmapShard(source.children[1]);
+            }
         }
-        tempList.addAll(Arrays.asList(source.children));
-        source.setParent(true);
-        if (source.children[0].canShatter()) {
-            shatterBitmapShard(source.children[0] );
-        }
-        if (source.children[1].canShatter()) {
-            shatterBitmapShard(source.children[1]);
-        }
-
     }
 
     private BitmapShard[] splitBitmapShardVertically(BitmapShard sourceShard) {
@@ -368,7 +335,6 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
         PointF center2 = new PointF(
                 sourceCenter.x,
                 sourceCenter.y + sourceHeight / 4/* - halfMinOffset*/);
-        Log.d(TAG, "sourceHeight == " + sourceHeight + ", maxCutoff == " + maxCutoff);
         Bitmap bitmap1 = Bitmap.createBitmap(bitmap, 0, 0, (int) sourceWidth, maxCutoff);
         Bitmap bitmap2 = Bitmap.createBitmap(bitmap, 0, minCutoff, (int) (sourceWidth), (int) sourceHeight - minCutoff);
 
@@ -429,10 +395,6 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
 
         // Return the 2 children.
         return new BitmapShard[]{shard1, shard2};
-    }
-
-    public void draw(Canvas canvas) {
-        canvas.drawBitmap(sourceBitmap, 0, 0, null);
     }
 
     public void simpleDraw(Canvas canvas) {

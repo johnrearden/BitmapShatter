@@ -67,8 +67,8 @@ public class Configuration {
         initialVelocity = 70.0f;
         framesForConstantVel = 5;
         lengthOfPauseAtExpansionLimit = 0;
-        expansionRatio = 2.5f;
-        zPosAtExpansionLimit = 2.0f;
+        expansionRatio = 4.0f;
+        zPosAtExpansionLimit = 5.0f;
 
     }
 

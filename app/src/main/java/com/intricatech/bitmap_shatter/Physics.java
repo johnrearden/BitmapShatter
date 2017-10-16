@@ -87,6 +87,7 @@ public class Physics implements TouchObserver,
             updateComplete = false;
 
             bitmapBoss.update();
+
             if (DEBUG) {
                 float t = System.nanoTime() - timeSinceLastCallback;
                 Log.d(TAG, "Time for update == " + String.format("%.2f,", t));

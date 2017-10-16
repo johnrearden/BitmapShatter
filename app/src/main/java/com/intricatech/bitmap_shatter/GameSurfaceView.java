@@ -307,7 +307,7 @@ public class GameSurfaceView extends SurfaceView
 
         void copyShardData(BitmapShard shard) {
             zPos = shard.getzPos();
-            matrix.set(shard.getMatrix());
+            matrix.set(shard.getShardMatrix());
             bitmap = shard.getBitmap();
         }
 

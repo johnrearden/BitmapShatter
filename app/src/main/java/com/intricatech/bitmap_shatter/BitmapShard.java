@@ -41,18 +41,15 @@ public class BitmapShard implements Comparable<BitmapShard> {
     private int recursiveDepth;
     private float xPos, yPos, zPos;
     private float xVel, yVel, zVel;
-    private float xVelDec, yVelDec, zVelDec;
+    private float xRotationDest, yRotationDest, zRotationDest;
     private float xRotation, yRotation, zRotation;
-    private float xRotationDec, yRotationDec, zRotationDec;
-    private float xAngVel, yAngVel, zAngVel;
-    private float velocityRatio;
 
     private boolean isOnScreen;
     private boolean isParent;
     private boolean canShatter;
 
     private Random random;
-    private Matrix matrix;
+    private Matrix shardMatrix;
 
     // Constructor.
     public BitmapShard(
@@ -87,13 +84,19 @@ public class BitmapShard implements Comparable<BitmapShard> {
         xPos = position.x;
         yPos = position.y;
 
+        // Calculate destinations for the shard at the outer limit of sinusoidal expansion.
         destinationPoint = new PointF();
         float x = centerRelativeToSourceCenter.x;
         float y = centerRelativeToSourceCenter.y;
         float xAdjustment = x > 0 ? -Math.abs(y * 0.25f) : Math.abs(y * 0.25f);
-        float yAdjustment = y > 0 ? -(float) Math.abs(x * 0.25f) : (float) Math.abs(x * 0.25f);
+        float yAdjustment = y > 0 ? - Math.abs(x * 0.25f) : Math.abs(x * 0.25f);
         destinationPoint.x = (x + xAdjustment) * configuration.getExpansionRatio();
         destinationPoint.y = (y + yAdjustment) * configuration.getExpansionRatio();
+
+        // Calculate the amount of rotation on the 3 axes at outer limit of sinusoidal expansion.
+        xRotationDest = -360 + (float) Math.random() * 720;
+        yRotationDest = -360 + (float) Math.random() * 720;
+        zRotationDest = -360 + (float) Math.random() * 720;
 
         zPos = 1.0f;
         zVel = 0.0f;
@@ -109,23 +112,6 @@ public class BitmapShard implements Comparable<BitmapShard> {
         ySize = bitmap.getHeight();
         memoryOverhead = (int) (xSize * ySize * 4);
 
-        // Set random angular velocities.
-        xAngVel = configuration.getMinXAngularVelocity()
-                + random.nextFloat() * (configuration.getMaxXAngularVelocity() - configuration.getMinXAngularVelocity());
-        if (random.nextFloat() < 0.5f) {
-            xAngVel = -xAngVel;
-        }
-        yAngVel = configuration.getMinYAngularVelocity()
-                + random.nextFloat() * (configuration.getMaxYAngularVelocity() - configuration.getMinYAngularVelocity());
-        if (random.nextFloat() < 0.5f) {
-            yAngVel = -yAngVel;
-        }
-        zAngVel = configuration.getMinZAngularVelocity()
-                + random.nextFloat() * (configuration.getMaxZAngularVelocity() - configuration.getMinZAngularVelocity());
-        if (random.nextFloat() < 0.5f) {
-            zAngVel = -zAngVel;
-        }
-
         // Check if this shard should itself be allowed to shatter. If the recursive depth
         // is between the MIN and MAX, then allow a 50% chance that it will shatter.
         if (recursiveDepth < configuration.getMinRecursiveDepth()) {
@@ -136,11 +122,8 @@ public class BitmapShard implements Comparable<BitmapShard> {
             canShatter = Math.random() < 0.5f ? true : false;
         }
 
-        // Save the initial state.
-        saveState(0);
-
-        // Create the matrix.
-        matrix = new Matrix();
+        // Create the shardMatrix.
+        shardMatrix = new Matrix();
     }
 
     public void update(
@@ -153,24 +136,16 @@ public class BitmapShard implements Comparable<BitmapShard> {
 
             case LINEAR_ACCELERATION:
                 if (shouldDecelerate) {
-                    xVel += xVelDec;
-                    yVel += yVelDec;
-                    zVel += zVelDec;
-                    xAngVel += xRotationDec;
-                    yAngVel += yRotationDec;
-                    zAngVel += zRotationDec;
-
                 }
                 xPos += xVel;
                 yPos += yVel;
                 zPos += zVel;
-                xRotation += xAngVel;
-                yRotation += yAngVel;
-                zRotation += zAngVel;
+
                 break;
 
             case SINUSOIDAL:
                 float expansionProgressRatio = (float) frameNumber / configuration.getFrameLimitBeforeReversing();
+
                 float xPosRange = destinationPoint.x - centerRelativeToSourceCenter.x;
                 float yPosRange = destinationPoint.y - centerRelativeToSourceCenter.y;
                 float zPosRange = configuration.getzPosAtExpansionLimit() - 1.0f;
@@ -178,14 +153,14 @@ public class BitmapShard implements Comparable<BitmapShard> {
                 yPos = position.y + yPosRange * (float) Math.sin(HALF_PI * expansionProgressRatio);
                 zPos = 1.0f + zPosRange * expansionProgressRatio * (1.0f - distToSourceCenterRatio);
 
-                xRotation += xAngVel;
-                yRotation += yAngVel;
-                zRotation += zAngVel;
+                xRotation = 0 + expansionProgressRatio * xRotationDest;
+                yRotation = 0 + expansionProgressRatio * yRotationDest;
+                zRotation = 0 + expansionProgressRatio * zRotationDest;
                 break;
         }
 
 
-        saveState(frameNumber);
+
 
         if (xPos < -surfaceInfo.screenWidth / 2 || xPos > surfaceInfo.screenWidth / 2) {
             isOnScreen = false;
@@ -198,22 +173,29 @@ public class BitmapShard implements Comparable<BitmapShard> {
             isOnScreen = true;
         }
 
+        calculateMatrix(surfaceInfo, camera);
+
+        saveState(frameNumber);
+
+    }
+
+    private void calculateMatrix(SurfaceInfo surfaceInfo, Camera camera) {
         camera.save();
 
-        camera.rotate(xAngVel, yAngVel, zAngVel);
+        camera.rotate(xRotation, yRotation, zRotation);
         camera.translate(
                 -xSize / 2,
                 +ySize / 2,
                 0.0f);
-        matrix = new Matrix();
-        camera.getMatrix(matrix);
-        matrix.postScale(zPos, zPos);
-        matrix.postTranslate(
+        shardMatrix = new Matrix();
+        camera.getMatrix(shardMatrix);
+        shardMatrix.postScale(zPos, zPos);
+        shardMatrix.postTranslate(
                 surfaceInfo.screenWidth / 2 - source.getWidth() / 2
                         + (xSize / 2) + xPos
                             /*- ((shard.getzPos() - 1.0f) * shard.getxSize())*/,
                 0);
-        matrix.postTranslate(
+        shardMatrix.postTranslate(
                 0,
                 surfaceInfo.screenHeight / 2 - source.getHeight() / 2
                         + (ySize / 2) + yPos
@@ -224,7 +206,7 @@ public class BitmapShard implements Comparable<BitmapShard> {
 
 
 
-    public void runExistingFramesBackwards(SurfaceInfo surfaceInfo, int frameNumber) {
+    public void runExistingFramesBackwards(SurfaceInfo surfaceInfo, Camera camera, int frameNumber) {
         RecordedState frameState = recordedStates.get(frameNumber);
         xPos = frameState.xPos;
         yPos = frameState.yPos;
@@ -232,9 +214,11 @@ public class BitmapShard implements Comparable<BitmapShard> {
         xRotation = frameState.xRotation;
         yRotation = frameState.yRotation;
         zRotation = frameState.zRotation;
+
+        shardMatrix.set(frameState.matrix);
     }
 
-    public void runExistingFramesForwards(SurfaceInfo surfaceInfo, int frameNumber) {
+    public void runExistingFramesForwards(SurfaceInfo surfaceInfo, Camera camera, int frameNumber) {
         RecordedState frameState = recordedStates.get(frameNumber);
         xPos = frameState.xPos;
         yPos = frameState.yPos;
@@ -242,14 +226,21 @@ public class BitmapShard implements Comparable<BitmapShard> {
         xRotation = frameState.xRotation;
         yRotation = frameState.yRotation;
         zRotation = frameState.zRotation;
+
+        shardMatrix.set(frameState.matrix);
+
     }
 
     private void saveState(int frameNumber) {
-        recordedStates.add(
-                new RecordedState(
-                        xPos, yPos, zPos, xRotation, yRotation, zRotation, frameNumber
-                )
-        );
+        RecordedState state = new RecordedState(
+                frameNumber, xPos, yPos, zPos, xRotation, yRotation, zRotation);
+        state.matrix.set(shardMatrix);
+        recordedStates.add(state);
+    }
+
+    public void saveInitialState(SurfaceInfo surfaceInfo, Camera camera) {
+        calculateMatrix(surfaceInfo, camera);
+        saveState(0);
     }
 
     @Override
@@ -264,22 +255,27 @@ public class BitmapShard implements Comparable<BitmapShard> {
     private class RecordedState {
 
         int frameNumber;
+        Matrix matrix;
 
         float xPos, yPos, zPos;
         float xRotation, yRotation, zRotation;
 
         RecordedState(
-                float xPos, float yPos, float zPos,
-                float xRotation, float yRotation, float zRotation,
-                int frameNumber
-        ){
+                int frameNumber,
+                float xPos,
+                float yPos,
+                float zPos,
+                float xRotation,
+                float yRotation,
+                float zRotation) {
+            this.frameNumber = frameNumber;
+            matrix = new Matrix();
             this.xPos = xPos;
             this.yPos = yPos;
             this.zPos = zPos;
             this.xRotation = xRotation;
             this.yRotation = yRotation;
             this.zRotation = zRotation;
-            this.frameNumber = frameNumber;
         }
 
     }
@@ -361,7 +357,7 @@ public class BitmapShard implements Comparable<BitmapShard> {
         return centerRelativeToSourceCenter;
     }
 
-    public Matrix getMatrix() {
-        return matrix;
+    public Matrix getShardMatrix() {
+        return shardMatrix;
     }
 }
