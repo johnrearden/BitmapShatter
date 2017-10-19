@@ -27,6 +27,7 @@ public class Physics implements TouchObserver,
 
     private boolean continueRunning;
     private long timeOfLastCallback;
+    int missedFrames;
 
     Physics(
             Context context,
@@ -116,6 +117,10 @@ public class Physics implements TouchObserver,
         timeOfLastCallback = callbackTime;
         if (physicsThreadStatus == PhysicsThreadStatus.WAITING_FOR_CHOREOGRAPHER) {
             physicsThreadStatus = PhysicsThreadStatus.WAITING_FOR_DATA_GRAB_COMPLETE;
+        } else {
+            missedFrames++;
+            Log.d(TAG, "missed frame ..... total == " + missedFrames);
+
         }
     }
 
@@ -135,4 +140,6 @@ public class Physics implements TouchObserver,
     public PhysicsThreadStatus getPhysicsThreadStatus() {
         return physicsThreadStatus;
     }
+
+
 }

@@ -51,12 +51,12 @@ public class GameSurfaceView extends SurfaceView
     private SharedPreferences sharedPreferences;
 
     private SurfaceInfo surfaceInfo;
-    private BitmapBoss bitmapBoss;
     private Paint linePaint, textPaint;
 
     private Thread drawThread;
     private boolean continueRendering;
     private long lastFrameStartTime;
+    int missedFrames;
 
     private ArrayList<ShardDrawingPacket> packetList;
 
@@ -90,7 +90,6 @@ public class GameSurfaceView extends SurfaceView
         holder.addCallback(this);
         choreographer = Choreographer.getInstance();
         physics = new Physics(context, touchDirector, configuration, this);
-        bitmapBoss = new BitmapBoss(context, this, touchDirector, configuration);
         packetList = new ArrayList<>();
         for (int i = 0; i < physics.getBitmapBoss().getSizeOfShardList(); i++) {
             packetList.add(new ShardDrawingPacket());
@@ -116,17 +115,17 @@ public class GameSurfaceView extends SurfaceView
 
             // If the surface isn't available yet, skip the frame.
             if (!holder.getSurface().isValid()) {
-                if (DEBUG) {
+                /*if (DEBUG) {
                     Log.d(TAG, "waiting for valid surface .... ");
-                }
+                }*/
                 continue;
             } else drawThreadStatus = DrawThreadStatus.WAITING_FOR_CHOREOGRAPHER;
 
             // Wait for the Choreographer to initiate the frame via callback to doFrame().
             while (drawThreadStatus == DrawThreadStatus.WAITING_FOR_CHOREOGRAPHER) {
-                if (DEBUG) {
+                /*if (DEBUG) {
                     Log.d(TAG, "waiting for choreographer");
-                }
+                }*/
                 try {
                     Thread.sleep(0, 1000);
                 } catch (InterruptedException ie) {
@@ -172,7 +171,7 @@ public class GameSurfaceView extends SurfaceView
                         linePaint
                 );
                 canvas.drawText(
-                        "frameNumber == " + bitmapBoss.getFrameNumber(),
+                        "frameNumber == " + physics.getBitmapBoss().getFrameNumber(),
                         50, 50, textPaint
                 );
             }
@@ -183,9 +182,16 @@ public class GameSurfaceView extends SurfaceView
 
             if (DEBUG) {
                 canvas.drawText(
-                        "minRecDepth == "
-                                + sharedPreferences.getString(getResources().getString(R.string.pref_key_min_recursive_depth), "default"),
+                        "drawThread misses : " +
+                                + missedFrames,
                         100, 100, textPaint
+                );
+            }
+            if (DEBUG) {
+                canvas.drawText(
+                        "physics Thread misses : " +
+                                + physics.missedFrames,
+                        100, 160, textPaint
                 );
             }
 
@@ -271,6 +277,9 @@ public class GameSurfaceView extends SurfaceView
         choreographer.postFrameCallback(this);
         if (drawThreadStatus == DrawThreadStatus.WAITING_FOR_CHOREOGRAPHER) {
             drawThreadStatus = DrawThreadStatus.GRABBING_DATA;
+        } else {
+            missedFrames++;
+            Log.d(TAG, "missed frame ..... total == " + missedFrames);
         }
         physics.doFrame(l);
 
