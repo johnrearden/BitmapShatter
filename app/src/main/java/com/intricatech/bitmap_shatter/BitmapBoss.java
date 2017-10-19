@@ -49,7 +49,13 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
     private boolean firstFrameMatrixCalculated;
 
     enum PlayType {
-        BEFORE_START, STOPPED_AND_RECORDED, PLAYING_AND_RECORDING, REVERSING, PLAYING, PAUSED_AT_OUTER
+        BEFORE_START,
+        STOPPED_AND_RECORDED,
+        PLAYING_AND_RECORDING,
+        REVERSING,
+        PLAYING,
+        PAUSED_AT_OUTER,
+        EXPAND_FOREVER
     }
     private PlayType playType;
 
@@ -71,7 +77,7 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
         playType = PlayType.BEFORE_START;
 
         shatterPaint = new Paint();
-        shatterPaint.setStrokeWidth(5);
+        shatterPaint.setStrokeWidth(1);
         shatterPaint.setColor(Color.BLUE);
         shatterPaint.setAntiAlias(true);
         shatterPaint.setStyle(Paint.Style.FILL);
@@ -79,7 +85,7 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
 
         filterPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
 
-        sourceBitmap = BitmapFactory.decodeResource(context.getResources(), R.drawable.download);
+        sourceBitmap = BitmapFactory.decodeResource(context.getResources(), R.drawable.shuttle);
         sourceWidth = sourceBitmap.getWidth();
         sourceHeight = sourceBitmap.getHeight();
         sourceBitmap = Bitmap.createScaledBitmap(sourceBitmap, ((int) (sourceWidth * 0.5f)), ((int) (sourceHeight * 0.5f)), false);
@@ -160,6 +166,7 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
                     playType = STOPPED_AND_RECORDED;
                 }
                 break;
+
             case PLAYING:
                 if (frameNumber < configuration.getFrameLimitBeforeReversing()) {
                     for (BitmapShard shard : shardList) {
@@ -418,8 +425,8 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
             case MotionEvent.ACTION_DOWN :
                 if (playType == PlayType.BEFORE_START) {
                     playType = PlayType.PLAYING_AND_RECORDING;
-                } else if (playType == PlayType.STOPPED_AND_RECORDED) {
-                    playType = PlayType.PLAYING;
+                } else if (playType == STOPPED_AND_RECORDED) {
+                    playType = PlayType.PLAYING_AND_RECORDING;
                 }
         }
     }

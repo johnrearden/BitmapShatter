@@ -8,4 +8,17 @@
         android:id="@+id/game_surfaceview"
         />
 
+    <ImageButton
+        android:id="@+id/settings_button"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:layout_margin="20dp"
+        android:visibility="gone"
+        android:background="@drawable/settings_icon"
+        android:elevation="5dp"
+        android:onClick="onSettingsButtonClick"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentEnd="true" />
+
+
 </RelativeLayout>

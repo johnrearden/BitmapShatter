@@ -1,3 +1,12 @@
 <resources>
     <string name="app_name">GameTemplate</string>
+    <string name="pref_recursive_depth_title">BITMAP SPLITTING</string>
+    <string name="pref_summary_sinusoidal">Choose the function that governs the expansion</string>
+    <string name="pref_title_sinusoidal">Expansion Type</string>
+    <string name="pref_summary_min_recursive_depth">The minimum number of times to split the original bitmap.</string>
+    <string name="pref_title_min_recursive_depth">Minimum Recursive Depth</string>
+    <string name="pref_summary_max_recursive_depth">The maximum number of times the original Bitmap can be split.</string>
+    <string name="pref_title_max_recursive_depth">Maximum Recursive Depth</string>
+    <string name="pref_key_min_recursive_depth">pref_key_min_recursive_depth</string>
+    <string name="pref_key_max_recursive_depth">pref_key_max_recursive_depth</string>
 </resources>

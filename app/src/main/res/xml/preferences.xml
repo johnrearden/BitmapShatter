@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <PreferenceCategory
+        android:title="@string/pref_recursive_depth_title"
+        android:key="pref_key_recursive_depth">
+        <ListPreference
+            android:key="@string/pref_key_min_recursive_depth"
+            android:summary="@string/pref_summary_min_recursive_depth"
+            android:title="@string/pref_title_min_recursive_depth"
+            android:entryValues="@array/min_recursive_depth_values"
+            android:entries="@array/min_recursive_depth_values"
+            android:defaultValue="4"
+            android:widgetLayout="@layout/custom">
+        </ListPreference>
+        <ListPreference
+            android:key="@string/pref_key_max_recursive_depth"
+            android:summary="@string/pref_summary_max_recursive_depth"
+            android:title="@string/pref_title_max_recursive_depth"
+            android:entryValues="@array/max_recursive_depth_values"
+            android:entries="@array/max_recursive_depth_values"
+            android:defaultValue="6">
+        </ListPreference>
+    </PreferenceCategory>
+</PreferenceScreen>

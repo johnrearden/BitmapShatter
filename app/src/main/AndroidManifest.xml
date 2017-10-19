@@ -9,6 +9,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:allowClearUserData="true"
+        android:largeHeap="true"
         android:theme="@style/BitmapShatterTheme"
         >
         <!--Random Comment changed once and twice-->

@@ -1,7 +1,6 @@
 package com.intricatech.bitmap_shatter;
 
 import android.content.Context;
-import android.graphics.Canvas;
 import android.util.Log;
 import android.view.MotionEvent;
 
@@ -15,31 +14,35 @@ public class Physics implements TouchObserver,
     private final String TAG;
     private static final boolean DEBUG = false;
 
+    enum PhysicsThreadStatus {
+        WAITING_FOR_CHOREOGRAPHER,
+        WAITING_FOR_DATA_GRAB_COMPLETE,
+        CALCULATING_PHYSICS
+    }
+    private volatile PhysicsThreadStatus physicsThreadStatus;
+
+    private GameSurfaceView gameSurfaceView;
     private BitmapBoss bitmapBoss;
     private Thread physicsThread;
 
-    private boolean updateComplete;
     private boolean continueRunning;
-    private boolean beginUpdate;
-    private boolean drawDataGrabComplete;
-    private long timeSinceLastCallback;
+    private long timeOfLastCallback;
 
     Physics(
             Context context,
-            SurfaceInfoDirector surfaceInfoDirector,
             TouchDirector touchDirector,
-            Configuration configuration) {
+            Configuration configuration,
+            GameSurfaceView gameSurfaceView) {
 
         TAG = getClass().getSimpleName();
 
         touchDirector.register(this);
         physicsThread = new Thread(this);
-        bitmapBoss = new BitmapBoss(context, surfaceInfoDirector, touchDirector, configuration);
+        bitmapBoss = new BitmapBoss(context, gameSurfaceView, touchDirector, configuration);
+        this.gameSurfaceView = gameSurfaceView;
 
-        updateComplete = false;
+        physicsThreadStatus = PhysicsThreadStatus.WAITING_FOR_CHOREOGRAPHER;
         continueRunning = false;
-        beginUpdate = false;
-        drawDataGrabComplete = true; // necessary so that the 1st update can execute at all.
     }
 
     @Override
@@ -53,9 +56,9 @@ public class Physics implements TouchObserver,
             }
 
             // Wait for doFrame to signal that frame should start.
-            while (!beginUpdate) {
+            while (physicsThreadStatus == PhysicsThreadStatus.WAITING_FOR_CHOREOGRAPHER) {
                 if (DEBUG) {
-                    Log.d(TAG, "waiting for beginUpdate == true");
+                    Log.d(TAG, "waiting for choreographer == true");
                 }
                 try {
                     Thread.sleep(0, 1000);
@@ -68,7 +71,7 @@ public class Physics implements TouchObserver,
             }
 
             // Wait for gameSurfaceView to signal that it has grabbed the last frame's draw data.
-            while (!drawDataGrabComplete) {
+            while (physicsThreadStatus == PhysicsThreadStatus.WAITING_FOR_DATA_GRAB_COMPLETE) {
                 if (DEBUG) {
                     Log.d(TAG, "waiting for drawDataGrabComplete == true");
                 }
@@ -80,28 +83,19 @@ public class Physics implements TouchObserver,
                 if (!continueRunning) {
                     break outerloop;
                 }
+                if (gameSurfaceView.getDrawThreadStatus() == GameSurfaceView.DrawThreadStatus.GRAB_COMPLETE_DRAWING_FRAME) {
+                    physicsThreadStatus = PhysicsThreadStatus.CALCULATING_PHYSICS;
+                }
             }
-
-            // Begin the update, having set the flags.
-            beginUpdate = false;
-            updateComplete = false;
 
             bitmapBoss.update();
+            physicsThreadStatus = PhysicsThreadStatus.WAITING_FOR_CHOREOGRAPHER;
 
             if (DEBUG) {
-                float t = System.nanoTime() - timeSinceLastCallback;
+                float t = System.nanoTime() - timeOfLastCallback;
                 Log.d(TAG, "Time for update == " + String.format("%.2f,", t));
             }
-
-            updateComplete = true;
-            drawDataGrabComplete = false;
         }
-    }
-
-    public void updateObjects() {
-    }
-
-    public void drawObjects(Canvas canvas) {
     }
 
     @Override
@@ -119,19 +113,15 @@ public class Physics implements TouchObserver,
 
     public void doFrame(long callbackTime) {
 
-        if (updateComplete) {
-            timeSinceLastCallback = callbackTime;
+        timeOfLastCallback = callbackTime;
+        if (physicsThreadStatus == PhysicsThreadStatus.WAITING_FOR_CHOREOGRAPHER) {
+            physicsThreadStatus = PhysicsThreadStatus.WAITING_FOR_DATA_GRAB_COMPLETE;
         }
-        beginUpdate = true;
     }
 
-    public void startThread() {
+    public void startPhysicsThread() {
         continueRunning = true;
         physicsThread.start();
-    }
-
-    public boolean isUpdateComplete() {
-        return updateComplete;
     }
 
     public boolean isContinueRunning() {
@@ -142,7 +132,7 @@ public class Physics implements TouchObserver,
         this.continueRunning = continueRunning;
     }
 
-    public void setDrawDataGrabComplete(boolean drawDataGrabComplete) {
-        this.drawDataGrabComplete = drawDataGrabComplete;
+    public PhysicsThreadStatus getPhysicsThreadStatus() {
+        return physicsThreadStatus;
     }
 }

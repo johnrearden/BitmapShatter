@@ -1,5 +1,7 @@
 package com.intricatech.bitmap_shatter;
 
+import android.util.Log;
+
 /**
  * Created by Bolgbolg on 12/10/2017.
  */
@@ -7,13 +9,14 @@ package com.intricatech.bitmap_shatter;
 public class Configuration {
 
     private static Configuration instance;
+    private final String TAG;
 
     public static Configuration getInstance() {
         if (instance == null) {
-            return new Configuration();
-        } else {
-            return instance;
+            instance = new Configuration();
+
         }
+        return instance;
     }
 
     enum Behaviour {
@@ -25,13 +28,6 @@ public class Configuration {
 
     private int maxRecursiveDepth;
     private int minRecursiveDepth;
-
-    private float maxXAngularVelocity;
-    private float maxYAngularVelocity;
-    private float maxZAngularVelocity;
-    private float minXAngularVelocity;
-    private float minYAngularVelocity;
-    private float minZAngularVelocity;
 
     private float maxXVelToScreenWidthRatio;
     private float maxYVelToScreenWidthRatio;
@@ -47,28 +43,23 @@ public class Configuration {
     private float zPosAtExpansionLimit;
 
     private Configuration() {
-        maxRecursiveDepth = 7;
-        minRecursiveDepth = 5;
 
-        maxXAngularVelocity = 3.0f;
-        maxYAngularVelocity = 3.0f;
-        maxZAngularVelocity = 7.0f;
-        minXAngularVelocity = 1.0f;
-        minYAngularVelocity = 1.0f;
-        minZAngularVelocity = 1.0f;
+        TAG = getClass().getSimpleName();
+        maxRecursiveDepth = 8;
+        minRecursiveDepth = 6;
 
         maxXVelToScreenWidthRatio = 0.01f;
         maxYVelToScreenWidthRatio = 0.01f;
         maxZVelToScreenWidthRatio = 0.01f;
 
-        frameLimitBeforeReversing = 22;
+        frameLimitBeforeReversing = 30;
         numberOfCoordinates = 10;
         variationRatio = 0.15f;
         initialVelocity = 70.0f;
         framesForConstantVel = 5;
         lengthOfPauseAtExpansionLimit = 0;
-        expansionRatio = 4.0f;
-        zPosAtExpansionLimit = 5.0f;
+        expansionRatio = 5.0f;
+        zPosAtExpansionLimit = 4.0f;
 
     }
 
@@ -86,6 +77,7 @@ public class Configuration {
 
     public void setMaxRecursiveDepth(int maxRecursiveDepth) {
         this.maxRecursiveDepth = maxRecursiveDepth;
+        Log.d(TAG, "setMaxRecursiveDepth() invoked");
     }
 
     public int getMinRecursiveDepth() {
@@ -94,55 +86,9 @@ public class Configuration {
 
     public void setMinRecursiveDepth(int minRecursiveDepth) {
         this.minRecursiveDepth = minRecursiveDepth;
+        Log.d(TAG, "setMinRecursiveDepth() invoked");
     }
 
-    public float getMaxXAngularVelocity() {
-        return maxXAngularVelocity;
-    }
-
-    public void setMaxXAngularVelocity(float maxXAngularVelocity) {
-        this.maxXAngularVelocity = maxXAngularVelocity;
-    }
-
-    public float getMaxYAngularVelocity() {
-        return maxYAngularVelocity;
-    }
-
-    public void setMaxYAngularVelocity(float maxYAngularVelocity) {
-        this.maxYAngularVelocity = maxYAngularVelocity;
-    }
-
-    public float getMaxZAngularVelocity() {
-        return maxZAngularVelocity;
-    }
-
-    public void setMaxZAngularVelocity(float maxZAngularVelocity) {
-        this.maxZAngularVelocity = maxZAngularVelocity;
-    }
-
-    public float getMinXAngularVelocity() {
-        return minXAngularVelocity;
-    }
-
-    public void setMinXAngularVelocity(float minXAngularVelocity) {
-        this.minXAngularVelocity = minXAngularVelocity;
-    }
-
-    public float getMinYAngularVelocity() {
-        return minYAngularVelocity;
-    }
-
-    public void setMinYAngularVelocity(float minYAngularVelocity) {
-        this.minYAngularVelocity = minYAngularVelocity;
-    }
-
-    public float getMinZAngularVelocity() {
-        return minZAngularVelocity;
-    }
-
-    public void setMinZAngularVelocity(float minZAngularVelocity) {
-        this.minZAngularVelocity = minZAngularVelocity;
-    }
 
     public float getMaxXVelToScreenWidthRatio() {
         return maxXVelToScreenWidthRatio;

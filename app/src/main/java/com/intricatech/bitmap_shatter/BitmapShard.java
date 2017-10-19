@@ -94,12 +94,11 @@ public class BitmapShard implements Comparable<BitmapShard> {
         destinationPoint.y = (y + yAdjustment) * configuration.getExpansionRatio();
 
         // Calculate the amount of rotation on the 3 axes at outer limit of sinusoidal expansion.
-        xRotationDest = -360 + (float) Math.random() * 720;
-        yRotationDest = -360 + (float) Math.random() * 720;
-        zRotationDest = -360 + (float) Math.random() * 720;
+        xRotationDest = -90 + (float) Math.random() * 180;
+        yRotationDest = -90 + (float) Math.random() * 180;
+        zRotationDest = -180 + (float) Math.random() * 360;
 
         zPos = 1.0f;
-        zVel = 0.0f;
         isOnScreen = true;
         isParent = false;
         canShatter = false;
@@ -124,6 +123,16 @@ public class BitmapShard implements Comparable<BitmapShard> {
 
         // Create the shardMatrix.
         shardMatrix = new Matrix();
+    }
+
+    public void explode(SurfaceInfo surfaceInfo, Camera camera) {
+        xVel = 0.1f * xPos;
+        yVel = 0.1f * yPos;
+
+        xPos += xVel;
+        yPos += yVel;
+
+        calculateMatrix(surfaceInfo, camera);
     }
 
     public void update(
