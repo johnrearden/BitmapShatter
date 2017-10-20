@@ -6,13 +6,11 @@ import android.graphics.BitmapFactory;
 import android.graphics.Camera;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.PointF;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
-import android.util.Log;
 import android.view.MotionEvent;
 
 import java.util.ArrayList;
@@ -29,37 +27,101 @@ import static com.intricatech.bitmap_shatter.BitmapBoss.PlayType.STOPPED_AND_REC
 
 public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
 
+    /**
+     * String used to identify this class in Log statements.
+     */
     private final String TAG;
 
+    /**
+     * Information about the surface used by GameSurfaceView.
+     */
     private SurfaceInfo surfaceInfo;
+
+    /**
+     * A reference to a singleton class holding the current state of the app's configuration, backed
+     * by a PreferenceActivity and its associated SharedPreference persistent data.
+     */
+
     private Configuration configuration;
 
+    /**
+     * The Bitmap used to decode the source image from the drawable resource folder, and a fresh
+     * transparent immutable Bitmap used to copy the image to, as the decoded Bitmap generated
+     * by BitmapFactory's static method has a black background(for some unknown reason).
+     */
     private Bitmap sourceBitmap, alphaBitmap;
-    private Paint shatterPaint, filterPaint;
+
+    /**
+     * Paint object used to blank out the section of a bitmap cut out by each splitting.
+     */
+    private Paint shatterPaint;
+
+    /**
+     * Width and height of the sourceImage (updated to reflect any scaling).
+     */
     private int sourceWidth, sourceHeight;
 
+    /**
+     * The camera performs the 3d rotations on the shattered bitmaps. Note that it calls native
+     * code - crashes can be caused by not providing a camera.restore() call to balance each
+     * camera.save().
+     */
     private Camera camera;
-    private Matrix matrix;
-    private List<BitmapShard> shardList;
-    private List<BitmapShard> tempList;
 
+    /**
+     * Lists for holding the split bitmaps. See doc for splitBitmapVertically() and
+     * splitBitmapHorizontally() to see reason for second List.
+     */
+    private List<BitmapShard> shardList, tempList;
+
+    /**
+     * Counter for the frames. Can be run backwards and forwards to load cached copies of previously
+     * generated states instead of recalculating the matrices.
+     */
     private int frameNumber;
+
+    /**
+     * Countdown for the number of frames the animation pauses for at the outer limit of an
+     * expansion.
+     */
     private int pauseCountdown;
+
+    /**
+     * Holds the diagonal distance from one corner of the source image to the center ... used
+     * to set a BitmapShards velocity proportional to its distance from the center.
+     */
     float maxDistToCenter;
+
+    /**
+     * Flag indicating whether the first frame has been calculated or not.
+     */
     private boolean firstFrameMatrixCalculated;
 
+    /**
+     * State enum to enable transitions between different behaviours.
+     */
     enum PlayType {
         BEFORE_START,
         STOPPED_AND_RECORDED,
         PLAYING_AND_RECORDING,
         REVERSING,
         PLAYING,
-        PAUSED_AT_OUTER,
-        EXPAND_FOREVER
+        PAUSED_AT_OUTER
     }
     private PlayType playType;
 
 
+    /**
+     * Sole constructor. Splitting of the source Bitmap is performed here. As this needs to be
+     * redone in the event of certain Configuration variables being changed, it should be extracted
+     * from the constructor.
+     *
+     * @param context Reference to the parent GameActivity, local to constructor, passed through
+     *                by GameSurfaceView and Physics objects.
+     * @param surfaceInfoDirector Reference to the GameSurfaceView, local to constructor.
+     * @param touchDirector Reference to the parent GameActivity, local to constructor.
+     * @param configuration Reference to the Configuration singleton object, object field.
+     */
     public BitmapBoss(
             Context context,
             SurfaceInfoDirector surfaceInfoDirector,
@@ -83,8 +145,6 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
         shatterPaint.setStyle(Paint.Style.FILL);
         shatterPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
 
-        filterPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
-
         sourceBitmap = BitmapFactory.decodeResource(context.getResources(), R.drawable.shuttle);
         sourceWidth = sourceBitmap.getWidth();
         sourceHeight = sourceBitmap.getHeight();
@@ -93,11 +153,14 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
         sourceHeight = sourceBitmap.getHeight();
         maxDistToCenter = (float) Math.sqrt((sourceWidth / 4) * (sourceWidth / 4)) + ((sourceHeight / 4) * (sourceHeight / 4));
 
+        // Copy the decoded sourceBitmap to a fresh transparent Bitmap, as otherwise all Shards will
+        // show a black background.
         alphaBitmap = Bitmap.createBitmap(sourceWidth, sourceHeight, Bitmap.Config.ARGB_8888);
         int[] pixels = new int[sourceWidth * sourceHeight];
         sourceBitmap.getPixels(pixels, 0, sourceWidth, 0, 0, sourceWidth, sourceHeight);
         alphaBitmap.setPixels(pixels, 0, sourceWidth, 0, 0, sourceWidth, sourceHeight);
 
+        // Create the first shard, and add it to the tempList.
         BitmapShard originalShard = new BitmapShard(
                 configuration,
                 BitmapShard.VelocityControlType.SINUSOIDAL,
@@ -109,8 +172,12 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
                 0
         );
         tempList.add(originalShard);
+
+        // Call method which shatters BitmapShards recursively.
         shatterBitmapShard(originalShard);
-        Log.d(TAG, "tempList : " + tempList.toString());
+
+        // Iterate through the temporary list and copy any BitmapShards that do not have children
+        // back to the main ArrayList. BitmapShards with children do not need to be drawn.
         for (BitmapShard bs : tempList) {
            if (!bs.isParent()) {
                shardList.add(bs);
@@ -122,10 +189,13 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
         firstFrameMatrixCalculated = false;
     }
 
+    /**
+     * Method uses a switch statement to control appropriate behaviour based on the current state.
+     */
     public void update() {
-
         switch (playType) {
 
+            // Save the initial state of the BitmapShards, as the states are saved after updating.
             case BEFORE_START:
                 if (!firstFrameMatrixCalculated) {
                     for (BitmapShard shard : shardList) {
@@ -134,8 +204,13 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
                     firstFrameMatrixCalculated = true;
                 }
                 break;
+
+            // Waiting for a touch event to set off a recorded expansion.
             case STOPPED_AND_RECORDED:
                 break;
+
+            // Proceeding with the expansion for the first time and saving the state of each
+            // frame to be reused later.
             case PLAYING_AND_RECORDING:
                 boolean shouldDecelerate =
                         frameNumber > configuration.getFramesForConstantVel() ? true : false;
@@ -155,6 +230,8 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
                 }
 
                 break;
+
+            // Running the frames backwards, and loading the states recorded previously.
             case REVERSING:
                 if (frameNumber > 0) {
                     frameNumber--;
@@ -167,6 +244,7 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
                 }
                 break;
 
+            // Running the frames forwards, and loading the states recorded previously.
             case PLAYING:
                 if (frameNumber < configuration.getFrameLimitBeforeReversing()) {
                     for (BitmapShard shard : shardList) {
@@ -179,6 +257,8 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
                     frameNumber--;
                 }
                 break;
+
+            // Waiting for the pause at the outer limit of the expansion to be completed.
             case PAUSED_AT_OUTER:
                 if (pauseCountdown-- <= 0) {
                     playType = REVERSING;
@@ -187,6 +267,13 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
         }
     }
 
+    /**
+     * Recursive method takes a BitmapShard as a paramter and splits it (the BitmapShard knows
+     * itself whether or not it is to be split) if appropriate. The method splits the shards
+     * along their longest side.
+     *
+     * @param source The BitmapShard to be split.
+     */
     private void shatterBitmapShard(BitmapShard source) {
         if (source.canShatter()) {
             if (source.getxSize() > source.getySize()) {
@@ -205,6 +292,16 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
         }
     }
 
+    /**
+     * Method splits the BitmapShard vertically, roughly in the center, and returns the 2 children.
+     * It creates a path representing a jagged break in the bitmap, and creates 2 new bitmaps for
+     * the visible halves of the source. It then blanks out the shape of the cut-out section using
+     * a PorterDuff composition, calculates the center position of the 2 children relative to the
+     * original sourceImage, and returns an array containing the 2 children.
+     *
+     * @param sourceShard The shard to be split.
+     * @return An array containing the 2 children.
+     */
     private BitmapShard[] splitBitmapShardVertically(BitmapShard sourceShard) {
 
         Bitmap bitmap = sourceShard.getBitmap();
@@ -304,6 +401,16 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
         return new BitmapShard[]{shard1, shard2};
     }
 
+    /**
+     * Method splits the BitmapShard horizontally, roughly in the center, and returns the 2 children.
+     * It creates a path representing a jagged break in the bitmap, and creates 2 new bitmaps for
+     * the visible halves of the source. It then blanks out the shape of the cut-out section using
+     * a PorterDuff composition, calculates the center position of the 2 children relative to the
+     * original sourceImage, and returns an array containing the 2 children.
+     *
+     * @param sourceShard The shard to be split.
+     * @return An array containing the 2 children.
+     */
     private BitmapShard[] splitBitmapShardHorizontally(BitmapShard sourceShard) {
 
         Bitmap bitmap = sourceShard.getBitmap();
@@ -404,6 +511,10 @@ public class BitmapBoss implements SurfaceInfoObserver, TouchObserver{
         return new BitmapShard[]{shard1, shard2};
     }
 
+    /**
+     * A debug utility method to draw the original source without splitting.
+     * @param canvas A canvas passed by the GameSurfaceView.
+     */
     public void simpleDraw(Canvas canvas) {
         for (BitmapShard shard : shardList) {
             canvas.drawBitmap(

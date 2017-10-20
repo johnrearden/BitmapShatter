@@ -5,10 +5,8 @@ import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.annotation.Nullable;
 import android.support.v4.app.FragmentActivity;
-import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
-import android.widget.ImageButton;
 
 import java.util.ArrayList;
 
@@ -19,15 +17,37 @@ import java.util.ArrayList;
 public class GameActivity extends FragmentActivity
                           implements View.OnTouchListener,
                                      TouchDirector {
-
+    /**
+     * String used to identify class in Log output, set in onCreate()
+     */
     private String TAG;
-    private GameSurfaceView gameSurfaceView;
-    private ArrayList<TouchObserver> touchObservers;
-    private Configuration configuration;
-    private SharedPreferences sharedPreferences;
-    private SharedPreferences.OnSharedPreferenceChangeListener prefChangeListener;
 
-    private ImageButton settingsButton;
+    /**
+     * Class extending SurfaceView responsible for drawing and physics.
+     */
+    private GameSurfaceView gameSurfaceView;
+
+    /**
+     * List of observers that this TouchDirector passes touch information on to.
+     */
+    private ArrayList<TouchObserver> touchObservers;
+
+    /**
+     * A singleton class holding the current state of the app's configuration, backed by a
+     * PreferenceActivity and its associated SharedPreference persistent data.
+     */
+    private Configuration configuration;
+
+    /**
+     * A reference to the application's SharedPreferences.
+     */
+    private SharedPreferences sharedPreferences;
+
+    /**
+     * A listener to pick up modifications to the applications configuration applied by the
+     * PreferenceActivity.
+     */
+    private SharedPreferences.OnSharedPreferenceChangeListener prefChangeListener;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -39,14 +59,10 @@ public class GameActivity extends FragmentActivity
         touchObservers = new ArrayList<>();
         sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
 
-
-        Log.d(TAG, "onCreate() invoked");
         gameSurfaceView = findViewById(R.id.game_surfaceview);
         gameSurfaceView.setOnTouchListener(this);
         configuration = Configuration.getInstance();
         gameSurfaceView.initialize(this, this, configuration, sharedPreferences);
-
-        settingsButton = findViewById(R.id.settings_button);
 
         prefChangeListener = new SharedPreferences.OnSharedPreferenceChangeListener() {
             @Override
@@ -66,21 +82,35 @@ public class GameActivity extends FragmentActivity
 
     }
 
+    /**
+     * Invokes superclass method and unregisters the listener holding a reference to this Activity,
+     * to facilitate garbage collection. Passes call through to GameSurfaceView to kill the draw
+     * and physics threads.
+     */
     @Override
     protected void onPause() {
         super.onPause();
-        Log.d(TAG, "onPause() invoked");
         sharedPreferences.unregisterOnSharedPreferenceChangeListener(prefChangeListener);
         gameSurfaceView.onPause();
     }
 
+    /**
+     * Invokes superclass method and registers a listener for changes in the SharedPreferences
+     * applied by the PreferenceActivity. Calls through to GameSurfaceView.
+     */
     @Override
     protected void onResume() {
         super.onResume();
-        Log.d(TAG, "onResume() invoked");
         sharedPreferences.registerOnSharedPreferenceChangeListener(prefChangeListener);
         gameSurfaceView.onResume();
     }
+
+    /**
+     * Passes touch detections on to registered observers.
+     * @param view
+     * @param motionEvent
+     * @return
+     */
 
     @Override
     public boolean onTouch(View view, MotionEvent motionEvent) {
@@ -88,8 +118,12 @@ public class GameActivity extends FragmentActivity
         return false;
     }
 
+    /**
+     * Handles settings button click, here starting a PreferenceFragment, but should start a
+     * PreferenceActivity. (Hard to style a Fragment independent of its Activity)
+     * @param view
+     */
     public void onSettingsButtonClick (View view) {
-        Log.d(TAG, "onSettingsButtonClick() invoked");
         getFragmentManager().beginTransaction()
                 .replace(android.R.id.content, new PrefFragment())
                 .addToBackStack(null)
@@ -113,8 +147,12 @@ public class GameActivity extends FragmentActivity
         }
     }
 
+    /**
+     * Abortive attempt to re-load the new configuration when a SharedPreference is changed and
+     * spotted by the SharedPreferenceChangeListener. Would be neater to flag the update and wait
+     * until the physics object is in an idle state.
+     */
     private void getNewPhysics() {
-        Log.d(TAG, "getNewPhysics() invoked");
         gameSurfaceView.setContinueRendering(false);
         gameSurfaceView.setPhysics(new Physics(this, this, configuration, gameSurfaceView));
         gameSurfaceView.publishSurfaceInfo();
