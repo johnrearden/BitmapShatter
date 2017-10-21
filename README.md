@@ -1,4 +1,4 @@
-# GameTemplate
-Simple template for trying out game ideas. Subclasses SurfaceView and uses a single Thread.
+# BitmapShatter
+Extends SurfaceView to display a bitmap which shatters into shards, are rotated by a Camera object, and scaled, positioned and drawn using a matrix.
 
 Ok
